@@ -27,7 +27,7 @@ const Navbar = () => {
   const pathname = usePathname();
   const { user } = useUser();
   return (
-    <header className="w-full fixed z-50 bg-('--bg-primary')">
+    <header className="w-full fixed z-50 bg-(--bg-primary)">
       <div className="wrapper navbar-height py-4 flex items-center justify-between">
         <Link href="/" className="flex gap-.5 items-center ">
           <Image
