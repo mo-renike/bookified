@@ -28,8 +28,7 @@ const UploadForm = () => {
     mode: "onChange",
   });
 
-  const { setValue, watch } = form;
-  const pdf = watch("pdf");
+  const { setValue } = form;
 
   const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
