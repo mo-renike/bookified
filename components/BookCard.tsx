@@ -21,12 +21,12 @@ const BookCard: React.FC<BookCardProps> = ({ book }) => {
               height={200}
               className="book-card-cover"
             />
-          </div>
+          </div>{" "}
+          <figcaption className="book-card-meta ">
+            <h3 className="book-card-title">{book.title}</h3>
+            <p className="book-card-author">{book.author}</p>
+          </figcaption>
         </figure>
-        <figcaption className="book-card-meta ">
-          <h3 className="book-card-title">{book.title}</h3>
-          <p className="book-card-author">{book.author}</p>
-        </figcaption>
       </article>
     </Link>
   );
