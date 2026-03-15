@@ -13,6 +13,7 @@ interface FileUploadFieldProps {
   isInvalid: boolean;
   error?: { message?: string };
   icon?: React.ReactNode;
+  disabled?: boolean;
 }
 
 const FileUploadField: React.FC<FileUploadFieldProps> = ({
@@ -26,6 +27,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({
   isInvalid,
   error,
   icon,
+  disabled = false,
 }) => {
   const defaultIcon = accept.includes("image") ? (
     <ImageIcon className="upload-dropzone-icon" />
@@ -44,6 +46,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({
               type="file"
               accept={accept}
               onChange={onUpload}
+              disabled={disabled}
               className="hidden"
               aria-invalid={isInvalid}
             />
@@ -60,6 +63,7 @@ const FileUploadField: React.FC<FileUploadFieldProps> = ({
                 onClick={onRemove}
                 className="upload-dropzone-remove"
                 aria-label={`Remove ${label.toLowerCase()}`}
+                disabled={disabled}
               >
                 <X />
               </button>
