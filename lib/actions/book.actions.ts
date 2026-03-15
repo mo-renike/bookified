@@ -67,6 +67,14 @@ export const saveBookSegments = async (
 
     console.log("Saving book segments...");
 
+    // Legacy index cleanup: older schema created a unique (bookId, pageNumber)
+    // index that fails when pageNumber is null or repeated across segments.
+    try {
+      await BookSegmentModel.collection.dropIndex("bookId_1_pageNumber_1");
+    } catch {
+      // Ignore if index does not exist.
+    }
+
     const bulkOps = segments.map(
       ({ text, segmentIndex, wordCount, pageNumber }) => ({
         updateOne: {
@@ -77,7 +85,7 @@ export const saveBookSegments = async (
             content: text,
             segmentIndex,
             wordCount,
-            pageNumber,
+            ...(pageNumber != null ? { pageNumber } : {}),
           },
           upsert: true,
         },

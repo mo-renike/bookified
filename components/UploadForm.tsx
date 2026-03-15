@@ -106,7 +106,7 @@ const UploadForm = () => {
 
       const uploadedPDFBlob = await upload(fileTitle, pdfFile, {
         access: "public",
-        handleUploadUrl: "/api/upload",
+        handleUploadUrl: "/api/uploads",
         contentType: "application/pdf",
       });
 
@@ -117,7 +117,7 @@ const UploadForm = () => {
         const coverImage = values.coverImage;
         const uploadedCoverBlob = await upload(coverFileTitle, coverImage, {
           access: "public",
-          handleUploadUrl: "/api/upload",
+          handleUploadUrl: "/api/uploads",
           contentType: "image/jpeg",
         });
         coverURL = uploadedCoverBlob.url;
@@ -126,7 +126,7 @@ const UploadForm = () => {
         const blob = await response.blob();
         const uploadedCoverBlob = await upload(`${fileTitle}-cover.png`, blob, {
           access: "public",
-          handleUploadUrl: "/api/upload",
+          handleUploadUrl: "/api/uploads",
           contentType: "image/png",
         });
         coverURL = uploadedCoverBlob.url;
