@@ -28,7 +28,8 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    mongooseCached.conn = await mongooseCached.promise;
+    const mongooseInstance = await mongooseCached.promise;
+    mongooseCached.conn = mongooseInstance.connection;
   } catch (error) {
     mongooseCached.promise = null;
     throw new Error("Failed to connect to MongoDB", { cause: error });
