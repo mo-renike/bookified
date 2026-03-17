@@ -3,9 +3,10 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { IBook } from "@/types";
 
 interface BookCardProps {
-  book: Book;
+  book: IBook;
 }
 
 const BookCard: React.FC<BookCardProps> = ({ book }) => {

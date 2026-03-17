@@ -148,7 +148,7 @@ const UploadForm = () => {
           "A book with this title already exists. Redirecting you to it...",
         );
         resetUploadForm();
-        router.push(`/books/${bookExists.book.slug}`);
+            router.push(`/books/${bookExists.book.slug}`);
         return;
       }
 

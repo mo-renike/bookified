@@ -5,6 +5,7 @@ import { generateSlug, serializeData } from "../utils";
 import { CreateBook, TextSegment } from "@/types";
 import BookModel from "@/database/models/book.model";
 import BookSegmentModel from "@/database/models/bookSegment.model";
+import { connect } from "http2";
 
 export const checkBookExists = async (title: string) => {
   try {
@@ -108,5 +109,18 @@ export const saveBookSegments = async (
     console.log("Deleted book segments due to failure to save segments");
 
     return { success: false, error: "Failed to save book segments" };
+  }
+};
+
+export const getAllBooks = async () => {
+  try {
+    await connectToDatabase();
+
+    const books = await BookModel.find().sort({ createdAt: -1 }).lean();
+
+    return { success: true, books: serializeData(books) };
+  } catch (error) {
+    console.error("Error getting books:", error);
+    return { success: false, error: "Failed to get books" };
   }
 };
