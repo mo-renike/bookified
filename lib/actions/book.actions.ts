@@ -144,3 +144,39 @@ export const getBookBySlug = async (clerkId: string, slug: string) => {
     return { success: false, data: null };
   }
 };
+
+export const searchBookSegments = async (
+  bookId: string,
+  query: string,
+  segmentCount: number = 3,
+) => {
+  try {
+    await connectToDatabase();
+
+    const trimmedQuery = query.trim();
+
+    if (!bookId || !trimmedQuery) {
+      return { success: true, segments: [] };
+    }
+
+    const segments = await BookSegmentModel.find(
+      {
+        bookId,
+        $text: { $search: trimmedQuery },
+      },
+      {
+        score: { $meta: "textScore" },
+        content: 1,
+        segmentIndex: 1,
+      },
+    )
+      .sort({ score: { $meta: "textScore" }, segmentIndex: 1 })
+      .limit(segmentCount)
+      .lean();
+
+    return { success: true, segments: serializeData(segments) };
+  } catch (error) {
+    console.error("Error searching book segments:", error);
+    return { success: false, segments: [], error: "Failed to search segments" };
+  }
+};
