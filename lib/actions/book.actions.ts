@@ -211,6 +211,44 @@ export const getAllBooks = async () => {
   }
 };
 
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const searchBooks = async (query: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: true, books: [] };
+    }
+
+    await connectToDatabase();
+
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      const books = await BookModel.find({ clerkId: userId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return { success: true, books: serializeData(books) };
+    }
+
+    const safeRegex = new RegExp(escapeRegex(trimmedQuery), "i");
+
+    const books = await BookModel.find({
+      clerkId: userId,
+      $or: [{ title: safeRegex }, { author: safeRegex }],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return { success: true, books: serializeData(books) };
+  } catch (error) {
+    console.error("Error searching books:", error);
+    return { success: false, error: "Failed to search books", books: [] };
+  }
+};
+
 export const getBookBySlug = async (slug: string) => {
   try {
     const { userId } = await auth();
