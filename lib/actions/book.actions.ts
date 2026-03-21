@@ -6,13 +6,13 @@ import { CreateBook, TextSegment } from "@/types";
 import BookModel from "@/database/models/book.model";
 import BookSegmentModel from "@/database/models/bookSegment.model";
 
-export const checkBookExists = async (title: string) => {
+export const checkBookExists = async (title: string, clerkId: string) => {
   try {
     await connectToDatabase();
 
     const slug = generateSlug(title);
 
-    const existingBook = await BookModel.findOne({ slug }).lean();
+    const existingBook = await BookModel.findOne({ slug, clerkId }).lean();
 
     if (existingBook) {
       return { exists: true, book: serializeData(existingBook) };
