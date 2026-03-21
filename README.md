@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bookified
+
+Bookified is a Next.js app that lets users upload books and have interactive AI voice conversations grounded in the book content.
+
+## Features
+
+- Authentication and user management with Clerk
+- Upload and process PDF files into searchable text segments
+- Personal library view with search by title or author
+- Voice conversations powered by Vapi with book-aware tool calling
+- Subscription-aware limits for books and session duration
+- Light and dark themes
+
+## Tech Stack
+
+- Next.js (App Router) + TypeScript
+- Tailwind CSS v4
+- MongoDB + Mongoose
+- Clerk
+- Vapi Web SDK
+- Vercel Blob upload flow
+
+## Prerequisites
+
+- Node.js 20+
+- npm
+- MongoDB database (Atlas or local)
+- Clerk app keys
+- Vapi API key and assistant id
+- Vercel Blob read/write token
+
+## Environment Variables
+
+Create or update your .env file with:
+
+```env
+MONGODB_URI=
+NEXT_PUBLIC_VAPI_API_KEY=
+NEXT_PUBLIC_ASSISTANT_ID=
+bookified_READ_WRITE_TOKEN=
+VERCEL_BLOB_CALLBACK_URL=
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+```
+
+Notes:
+
+- VERCEL_BLOB_CALLBACK_URL is optional in many local setups. The API route falls back to /api/uploads.
+- Keep secrets private and never commit your real .env values.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
 
-## Learn More
+## App Structure
 
-To learn more about Next.js, take a look at the following resources:
+- app/(root): main pages (library, book upload, subscriptions, book details)
+- app/api: API routes for uploads and Vapi tool calls
+- components: UI and feature components
+- database: Mongoose connection and models
+- hooks: client hooks (including Vapi session handling)
+- lib/actions: server actions for books and voice sessions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Voice Tool Route
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The endpoint at /api/vapi/search-book handles Vapi tool calls for book-grounded retrieval.
+It validates authentication and ownership, runs a text search over indexed segments, and returns formatted context to the voice assistant.
 
-## Deploy on Vercel
+## Deployment
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This app is ready for Vercel deployment.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Before deploying:
+
+- Set all environment variables in your hosting provider.
+- Ensure your MongoDB network and credentials allow production access.
+- Configure Clerk production keys and allowed domains.
+- Configure Vercel Blob token and callback behavior.
+
+## License
+
+No license has been specified yet.
