@@ -200,7 +200,7 @@ export const useVapi = (book: IBook) => {
       }
 
       sesionIdRef.current = (result.sessionId as string) || null;
-      const firstMessage = `Hey! good to meet you, I am ${book.persona}. Before we dive in, have you actually read "${book.title}" by ${book.author}" or are we starting fresh?`;
+      const firstMessage = `Hey! Good to meet you, I'm ${book.persona}. Before we dive in, have you actually read "${book.title}" by ${book.author}, or are we starting fresh?`;
 
       await getVapi().start(ASSISTANT_ID, {
         firstMessage,
