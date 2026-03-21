@@ -2,10 +2,12 @@ import { IBook, Messages } from "@/types";
 import { useAuth } from "@clerk/nextjs";
 import { useEffect, useRef, useState } from "react";
 import Vapi from "@vapi-ai/web";
+import { useRouter } from "next/navigation";
 import {
   startVoiceSession,
   endVoiceSession,
 } from "@/lib/actions/session.actions";
+import { getUserPlanLimits } from "@/lib/subscription";
 import { ASSISTANT_ID, VOICE_SETTINGS } from "@/lib/constants";
 import { getVoice } from "@/lib/utils";
 
@@ -41,22 +43,21 @@ function getVapi() {
 
 export const useVapi = (book: IBook) => {
   const { userId } = useAuth();
+  const router = useRouter();
   // TODO: implement limits based on subscription plan (e.g. max books allowed, max segments allowed, etc.)
   const [status, setstatus] = useState<CallStatus>("idle");
   const [messages, setmessages] = useState<Messages[]>([]);
   const [currentMessage, setcurrentMessage] = useState("");
   const [currentUserMessage, setcurrentUserMessage] = useState("");
   const [duration, setduration] = useState(0);
+  const [maxDurationSeconds, setmaxDurationSeconds] = useState(15 * 60);
   const [limitError, setlimitError] = useState<string | null>(null);
 
-  // TODO: Implement session duration tracking and subscription limit checking
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const startTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef<boolean>(false);
+  const hasEnforcedLimitRef = useRef<boolean>(false);
   const lastFinalMessageRef = useRef<string>("");
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -75,6 +76,15 @@ export const useVapi = (book: IBook) => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const msg = message as Record<string, any>;
+
+      const eventType = String(msg.type || "").toLowerCase();
+      if (eventType === "speech-start") {
+        setstatus("speaking");
+      }
+
+      if (eventType === "speech-end") {
+        setstatus("listening");
+      }
       // Extract role and content from message
       const role = String(msg.role || msg.message?.role || "").toLowerCase();
       const content = String(
@@ -94,6 +104,7 @@ export const useVapi = (book: IBook) => {
         if (transcriptType === "partial") {
           // Update streaming user message
           setcurrentUserMessage(content);
+          setstatus("listening");
         } else if (transcriptType === "final") {
           // Add final user message to history and deduplicate
           if (content !== lastFinalMessageRef.current) {
@@ -138,6 +149,14 @@ export const useVapi = (book: IBook) => {
       console.log("Call started");
       setstatus("listening");
       lastFinalMessageRef.current = "";
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+
+      timerRef.current = setInterval(() => {
+        setduration((prev) => prev + 1);
+      }, 1000);
     };
 
     const onCallEnd = () => {
@@ -145,6 +164,11 @@ export const useVapi = (book: IBook) => {
       setstatus("idle");
       setcurrentMessage("");
       setcurrentUserMessage("");
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
 
     const onVapiError = (error: Record<string, unknown>) => {
@@ -170,6 +194,65 @@ export const useVapi = (book: IBook) => {
   useEffect(() => {
     return setupVapiListeners();
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadPlanDurationLimit = async () => {
+      try {
+        const limits = await getUserPlanLimits();
+
+        if (!mounted) {
+          return;
+        }
+
+        if (limits?.maxSessionMinutes) {
+          setmaxDurationSeconds(limits.maxSessionMinutes * 60);
+        }
+      } catch (error) {
+        console.error("Error loading plan duration limit:", error);
+      }
+    };
+
+    void loadPlanDurationLimit();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const limitReached =
+      maxDurationSeconds > 0 && duration >= maxDurationSeconds;
+
+    if (!isActive || !limitReached || hasEnforcedLimitRef.current) {
+      return;
+    }
+
+    hasEnforcedLimitRef.current = true;
+
+    setlimitError("Session time limit reached for your current plan.");
+
+    const enforceLimit = async () => {
+      try {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+
+        await getVapi().stop();
+
+        if (sessionIdRef.current) {
+          await endVoiceSession(sessionIdRef.current, duration);
+          sessionIdRef.current = null;
+        }
+      } finally {
+        router.push("/");
+      }
+    };
+
+    void enforceLimit();
+  }, [duration, isActive, maxDurationSeconds, router]);
 
   // limits
   //   const maxDurationRef = useLatestRef(limits.maxSessionMinutes * 60);
@@ -198,7 +281,10 @@ export const useVapi = (book: IBook) => {
         return;
       }
 
+      hasEnforcedLimitRef.current = false;
       sessionIdRef.current = (result.sessionId as string) || null;
+      setduration(0);
+      setmaxDurationSeconds((result.maxDurationMinutes || 15) * 60);
       const firstMessage = `Hey! good to meet you, I am ${book.persona}. Before we dive in, have you actually read "${book.title}" by ${book.author}" or are we starting fresh?`;
 
       await getVapi().start(ASSISTANT_ID, {
@@ -231,11 +317,18 @@ export const useVapi = (book: IBook) => {
 
   const stopCall = async () => {
     isStoppingRef.current = true;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     await getVapi().stop();
 
     // End the session with the final duration
     if (sessionIdRef.current) {
       await endVoiceSession(sessionIdRef.current, duration);
+      sessionIdRef.current = null;
     }
   };
 
@@ -245,9 +338,25 @@ export const useVapi = (book: IBook) => {
     setcurrentMessage("");
     setcurrentUserMessage("");
     setduration(0);
+    setmaxDurationSeconds(15 * 60);
     sessionIdRef.current = null;
     isStoppingRef.current = false;
+    hasEnforcedLimitRef.current = false;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
 
   return {
     status,
@@ -255,6 +364,7 @@ export const useVapi = (book: IBook) => {
     currentMessage,
     currentUserMessage,
     duration,
+    maxDurationSeconds,
     limitError,
     voice,
     isActive,

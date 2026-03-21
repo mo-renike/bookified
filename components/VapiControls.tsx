@@ -18,6 +18,8 @@ const VapiControls = ({ book }: VapiControlsProps) => {
     currentMessage,
     currentUserMessage,
     duration,
+    maxDurationSeconds,
+    limitError,
     voice,
     isActive,
     // hasDurationLimit,
@@ -109,10 +111,14 @@ const VapiControls = ({ book }: VapiControlsProps) => {
 
             <div className="vapi-status-indicator">
               <span className="vapi-status-text">
-                {formatDuration(duration)}/15:00
+                {formatDuration(duration)}/{formatDuration(maxDurationSeconds)}
               </span>
             </div>
           </div>
+
+          {limitError && (
+            <p className="text-sm font-medium text-red-700">{limitError}</p>
+          )}
         </div>
       </header>
       <div className="vapi-transcript-wrapper">
