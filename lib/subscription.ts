@@ -18,8 +18,6 @@ export const getUserPlan = async (): Promise<SubscriptionPlan> => {
   try {
     const { has } = await auth();
 
-    // Use Clerk's native has() method to check plans
-    // Plans are checked in order of priority (highest tier first)
     if (has({ plan: "pro" })) {
       return "pro";
     }
@@ -28,7 +26,6 @@ export const getUserPlan = async (): Promise<SubscriptionPlan> => {
       return "standard";
     }
 
-    // Default to free (no active plan)
     return "free";
   } catch (error) {
     console.error("Error getting user plan:", error);
