@@ -142,7 +142,7 @@ const UploadForm = () => {
         fileSize: pdfFile.size,
       });
 
-      if (!book.success || !book.book) {
+      if (!book.success) {
         const errorMessage = book.error || "Failed to create book";
         toast.error(errorMessage);
 
@@ -158,15 +158,28 @@ const UploadForm = () => {
 
         return;
       }
-      if (book.alreadyExists) {
+
+      if (!("book" in book) || !book.book) {
+        toast.error("Failed to create book");
+        return;
+      }
+
+      const createdBook = book.book as { _id: string; slug: string };
+      const alreadyExists =
+        "alreadyExists" in book ? Boolean(book.alreadyExists) : false;
+
+      if (alreadyExists) {
         toast.info(
           "A book with this title already exists. Redirecting you to it...",
         );
         resetUploadForm();
-        router.push(`/books/${book.book.slug}`);
+        router.push(`/books/${createdBook.slug}`);
         return;
       }
-      const segments = await saveBookSegments(book.book._id, parsedPDF.content);
+      const segments = await saveBookSegments(
+        createdBook._id,
+        parsedPDF.content,
+      );
 
       if (!segments.success) {
         toast.error("Failed to save book segments. Please try again.");

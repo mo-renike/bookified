@@ -6,7 +6,7 @@ import { CreateBook, TextSegment } from "@/types";
 import BookModel from "@/database/models/book.model";
 import BookSegmentModel from "@/database/models/bookSegment.model";
 import { auth } from "@clerk/nextjs/server";
-import { canCreateBook } from "@/lib/subscription";
+import { canCreateBook, getUserPlan } from "@/lib/subscription";
 
 type CreateBookInput = Omit<CreateBook, "clerkId">;
 
@@ -44,39 +44,76 @@ export const createBook = async (data: CreateBookInput) => {
       return { success: false, error: "Unauthorized" };
     }
 
-    // Check subscription limits before creating book
-    const { allowed, reason } = await canCreateBook();
-    if (!allowed) {
-      return {
-        success: false,
-        error: reason || "You've reached your book limit for this plan",
-      };
-    }
-
-    await connectToDatabase();
+    const conn = await connectToDatabase();
+    const session = await conn.startSession();
 
     const slug = generateSlug(data.title);
 
-    const existingBook = await BookModel.findOne({
-      clerkId: userId,
-      slug,
-    }).lean();
-    if (existingBook) {
-      return {
-        success: true,
-        book: serializeData(existingBook),
-        alreadyExists: true,
-      };
+    try {
+      const plan = await getUserPlan();
+      let result:
+        | {
+            success: true;
+            book: unknown;
+            alreadyExists?: boolean;
+          }
+        | {
+            success: false;
+            error: string;
+          }
+        | null = null;
+
+      await session.withTransaction(async () => {
+        const existingBook = await BookModel.findOne({
+          clerkId: userId,
+          slug,
+        })
+          .session(session)
+          .lean();
+
+        if (existingBook) {
+          result = {
+            success: true,
+            book: serializeData(existingBook),
+            alreadyExists: true,
+          };
+          return;
+        }
+
+        // Atomic limit check + insert inside the same transaction.
+        const { allowed, reason } = await canCreateBook({
+          userId,
+          plan,
+          session,
+        });
+
+        if (!allowed) {
+          result = {
+            success: false,
+            error: reason || "You've reached your book limit for this plan",
+          };
+          return;
+        }
+
+        const [newBook] = await BookModel.create(
+          [
+            {
+              ...data,
+              clerkId: userId,
+              slug,
+              totalSegments: 0,
+            },
+          ],
+          { session },
+        );
+
+        result = { success: true, book: serializeData(newBook) };
+      });
+
+      return result || { success: false, error: "Failed to create book" };
+    } finally {
+      await session.endSession();
     }
-
-    const newBook = await BookModel.create({
-      ...data,
-      clerkId: userId,
-      slug,
-      totalSegments: 0,
-    });
-
-    return { success: true, book: serializeData(newBook) };
   } catch (error) {
     console.error("Error creating book:", error);
     return { success: false, error: "Failed to create book" };
@@ -171,6 +208,44 @@ export const getAllBooks = async () => {
   } catch (error) {
     console.error("Error getting books:", error);
     return { success: false, error: "Failed to get books" };
+  }
+};
+
+const escapeRegex = (value: string) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const searchBooks = async (query: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: true, books: [] };
+    }
+
+    await connectToDatabase();
+
+    const trimmedQuery = query.trim();
+
+    if (!trimmedQuery) {
+      const books = await BookModel.find({ clerkId: userId })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return { success: true, books: serializeData(books) };
+    }
+
+    const safeRegex = new RegExp(escapeRegex(trimmedQuery), "i");
+
+    const books = await BookModel.find({
+      clerkId: userId,
+      $or: [{ title: safeRegex }, { author: safeRegex }],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return { success: true, books: serializeData(books) };
+  } catch (error) {
+    console.error("Error searching books:", error);
+    return { success: false, error: "Failed to search books", books: [] };
   }
 };
 

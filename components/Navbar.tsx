@@ -1,16 +1,15 @@
 "use client";
 import { cn } from "@/lib/utils";
-import {
-  Show,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  useUser,
-} from "@clerk/nextjs";
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import React from "react";
+
+const ThemeToggle = dynamic(() => import("./ThemeToggle"), {
+  ssr: false,
+});
 
 const navItems = [
   {
@@ -25,9 +24,8 @@ const navItems = [
 
 const Navbar = () => {
   const pathname = usePathname();
-  const { user } = useUser();
   return (
-    <header className="w-full fixed z-50 bg-(--bg-primary)">
+    <header className="w-full fixed z-50 bg-[var(--bg-primary)]">
       <div className="wrapper navbar-height py-4 flex items-center justify-between">
         <Link href="/" className="flex gap-.5 items-center ">
           <Image
@@ -51,23 +49,19 @@ const Navbar = () => {
                   href={item.href}
                   className={cn(
                     "nav-link-base",
-                    isActive
-                      ? "nav-link-active"
-                      : "text-black hover:opacity-70",
+                    isActive ? "nav-link-active" : "nav-link-default",
                   )}
                 >
                   {item.label}
                 </Link>
               );
             })}
-          </nav>
+          </nav>{" "}
           <div className="flex items-center gap-3">
             <Show when="signed-out">
               <SignInButton mode="modal" />
               <SignUpButton mode="modal">
-                <button className="bg-[#6c47ff] text-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer">
-                  Sign Up
-                </button>
+                <button className="nav-signup-btn">Sign Up</button>
               </SignUpButton>
             </Show>
             <Show when="signed-in">
@@ -75,10 +69,11 @@ const Navbar = () => {
                 Subscriptions
               </Link>
               <UserButton />{" "}
-              {user?.firstName && (
+              {/* {user?.firstName && (
                 <span className="nav-user-name">{user.firstName}</span>
-              )}
-            </Show>
+              )} */}
+            </Show>{" "}
+            <ThemeToggle />
           </div>
         </div>
       </div>
