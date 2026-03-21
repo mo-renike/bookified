@@ -95,16 +95,19 @@ export const saveBookSegments = async (
     await BookSegmentModel.bulkWrite(bulkOps);
 
     // Update totalSegments in Book document
-    await BookModel.findByIdAndUpdate(bookId, {
-      totalSegments: segments.length,
-    });
+    await BookModel.findOneAndUpdate(
+      { _id: bookId, clerkId },
+      {
+        totalSegments: segments.length,
+      },
+    );
     console.log("Book segments saved successfully");
     return { success: true, totalSegments: segments.length };
   } catch (error) {
     console.error("Error saving book segments:", error);
 
     await BookSegmentModel.deleteMany({ clerkId, bookId });
-    await BookModel.findByIdAndDelete(bookId);
+    await BookModel.findOneAndDelete({ _id: bookId, clerkId });
     console.log("Deleted book segments due to failure to save segments");
 
     return { success: false, error: "Failed to save book segments" };
