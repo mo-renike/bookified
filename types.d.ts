@@ -134,3 +134,28 @@ interface EndSessionResult {
   success: boolean;
   error?: string;
 }
+
+// ============================================
+// SUBSCRIPTION & BILLING TYPES
+// ============================================
+
+export type SubscriptionPlan = "free" | "standard" | "pro";
+
+export interface PlanLimits {
+  name: string;
+  maxBooks: number;
+  maxSessionsPerMonth: number;
+  maxSessionMinutes: number;
+  hasSessionHistory: boolean;
+}
+
+export interface PlanCheckResult {
+  allowed: boolean;
+  reason?: string;
+  maxDurationMinutes?: number;
+}
+
+export interface UsageStats {
+  current: number;
+  limit: number;
+}

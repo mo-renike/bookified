@@ -5,6 +5,7 @@ import { connectToDatabase } from "@/database/mongoose";
 import { EndSessionResult, StartSessionResult } from "@/types";
 import { getCurrentBillingPeriodStart } from "../subscription.constants";
 import { auth } from "@clerk/nextjs/server";
+import { canStartVoiceSession, getUserPlanLimits } from "@/lib/subscription";
 
 export const startVoiceSession = async (
   bookId: string,
@@ -16,8 +17,17 @@ export const startVoiceSession = async (
       return { success: false, error: "Unauthorized" };
     }
 
+    // Check subscription limits before starting session
+    const { allowed, reason, maxDurationMinutes } =
+      await canStartVoiceSession();
+    if (!allowed) {
+      return {
+        success: false,
+        error: reason || "Unable to start voice session",
+      };
+    }
+
     await connectToDatabase();
-    // limits/plan checks would go here (e.g. check if user has reached max session minutes for the month, etc.)
 
     const session = await VoiceSessionModel.create({
       clerkId: userId,
@@ -30,7 +40,7 @@ export const startVoiceSession = async (
     return {
       success: true,
       sessionId: session._id.toString(),
-      // maxDurationMinutes: limits.maxSessionMinutes * 60, // TODO: replace with real limit from subscription plan
+      maxDurationMinutes: maxDurationMinutes || 5,
     };
   } catch (error) {
     console.error("Error starting voice session:", error);

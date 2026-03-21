@@ -141,8 +141,10 @@ const UploadForm = () => {
         coverURL,
         fileSize: pdfFile.size,
       });
+
       if (!book.success || !book.book) {
-        throw new Error(book.error || "Failed to create book");
+        toast.error(book.error || "Failed to create book");
+        return;
       }
       if (book.alreadyExists) {
         toast.info(
