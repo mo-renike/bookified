@@ -141,8 +141,22 @@ const UploadForm = () => {
         coverURL,
         fileSize: pdfFile.size,
       });
+
       if (!book.success || !book.book) {
-        throw new Error(book.error || "Failed to create book");
+        const errorMessage = book.error || "Failed to create book";
+        toast.error(errorMessage);
+
+        const isSubscriptionError = /subscription|plan|limit|upgrade/i.test(
+          errorMessage,
+        );
+
+        if (isSubscriptionError) {
+          setTimeout(() => {
+            router.push("/subscriptions");
+          }, 1500);
+        }
+
+        return;
       }
       if (book.alreadyExists) {
         toast.info(

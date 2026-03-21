@@ -6,6 +6,7 @@ import { CreateBook, TextSegment } from "@/types";
 import BookModel from "@/database/models/book.model";
 import BookSegmentModel from "@/database/models/bookSegment.model";
 import { auth } from "@clerk/nextjs/server";
+import { canCreateBook } from "@/lib/subscription";
 
 type CreateBookInput = Omit<CreateBook, "clerkId">;
 
@@ -43,6 +44,15 @@ export const createBook = async (data: CreateBookInput) => {
       return { success: false, error: "Unauthorized" };
     }
 
+    // Check subscription limits before creating book
+    const { allowed, reason } = await canCreateBook();
+    if (!allowed) {
+      return {
+        success: false,
+        error: reason || "You've reached your book limit for this plan",
+      };
+    }
+
     await connectToDatabase();
 
     const slug = generateSlug(data.title);
@@ -58,7 +68,6 @@ export const createBook = async (data: CreateBookInput) => {
         alreadyExists: true,
       };
     }
-    // TODO: check subscription limits here (e.g. max books allowed) before creating new book
 
     const newBook = await BookModel.create({
       ...data,
