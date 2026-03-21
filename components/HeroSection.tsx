@@ -4,7 +4,7 @@ import HeroSteps from "./HeroSteps";
 
 const HeroSection = () => {
   return (
-    <section className="wrapper">
+    <section className="wrapper w-full">
       <div className="library-hero-card">
         <div className="library-hero-content">
           {/* Left Section: Title, Description, CTA */}

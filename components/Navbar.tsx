@@ -3,9 +3,13 @@ import { cn } from "@/lib/utils";
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import React from "react";
-import ThemeToggle from "./ThemeToggle";
+
+const ThemeToggle = dynamic(() => import("./ThemeToggle"), {
+  ssr: false,
+});
 
 const navItems = [
   {
