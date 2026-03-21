@@ -8,14 +8,13 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Serialize Mongoose documents to plain JSON objects (strips ObjectId, Date, etc.)
-type Serialized<T> =
-  T extends { toJSON(): infer U }
-    ? Serialized<U>
-    : T extends Array<infer U>
-      ? Serialized<U>[]
-      : T extends object
-        ? { [K in keyof T]: Serialized<T[K]> }
-        : T;
+type Serialized<T> = T extends { toJSON(): infer U }
+  ? Serialized<U>
+  : T extends Array<infer U>
+    ? Serialized<U>[]
+    : T extends object
+      ? { [K in keyof T]: Serialized<T[K]> }
+      : T;
 
 export const serializeData = <T>(data: T): Serialized<T> =>
   JSON.parse(JSON.stringify(data)) as Serialized<T>;
@@ -96,9 +95,10 @@ export const getVoice = (persona?: string) => {
 export const formatDuration = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
+  return `${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
 };
-
 export async function parsePDFFile(file: File) {
   try {
     const pdfjsLib = await import("pdfjs-dist");

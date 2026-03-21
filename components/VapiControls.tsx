@@ -4,6 +4,7 @@ import { IBook } from "@/types";
 import { Mic, MicOff } from "lucide-react";
 import Image from "next/image";
 import Transcript from "./Transcript";
+import { formatDuration } from "@/lib/utils";
 
 interface VapiControlsProps {
   book: IBook;
@@ -25,14 +26,6 @@ const VapiControls = ({ book }: VapiControlsProps) => {
     startCall,
     stopCall,
   } = useVapi(book);
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-      .toString()
-      .padStart(1, "0");
-    const secs = (seconds % 60).toString().padStart(2, "0");
-    return `${mins}:${secs}`;
-  };
 
   const statusLabelMap: Record<string, string> = {
     idle: "Ready",
