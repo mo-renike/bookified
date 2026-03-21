@@ -1,4 +1,8 @@
-import { searchBookSegments } from "@/lib/actions/book.actions";
+import {
+  searchBookSegments,
+  verifyBookOwnership,
+} from "@/lib/actions/book.actions";
+import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 type ToolCall = {
@@ -122,6 +126,8 @@ const extractToolCalls = (payload: VapiToolCallPayload): ToolCall[] => {
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    const { userId } = await auth();
+
     const payload = (await request.json()) as VapiToolCallPayload;
     const toolCalls = extractToolCalls(payload);
 
@@ -134,6 +140,24 @@ export async function POST(request: Request): Promise<NextResponse> {
         const { bookId, query, segmentCount } = getCallParameters(call);
 
         if (!bookId || !query.trim()) {
+          return {
+            name: call.name || "search-book",
+            toolCallId: call.id,
+            result: NO_INFORMATION_MESSAGE,
+          };
+        }
+
+        if (!userId) {
+          return {
+            name: call.name || "search-book",
+            toolCallId: call.id,
+            result: NO_INFORMATION_MESSAGE,
+          };
+        }
+
+        const ownsBook = await verifyBookOwnership(bookId);
+
+        if (!ownsBook) {
           return {
             name: call.name || "search-book",
             toolCallId: call.id,

@@ -5,14 +5,25 @@ import { generateSlug, serializeData } from "../utils";
 import { CreateBook, TextSegment } from "@/types";
 import BookModel from "@/database/models/book.model";
 import BookSegmentModel from "@/database/models/bookSegment.model";
+import { auth } from "@clerk/nextjs/server";
+
+type CreateBookInput = Omit<CreateBook, "clerkId">;
 
 export const checkBookExists = async (title: string) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { exists: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
 
     const slug = generateSlug(title);
 
-    const existingBook = await BookModel.findOne({ slug }).lean();
+    const existingBook = await BookModel.findOne({
+      clerkId: userId,
+      slug,
+    }).lean();
 
     if (existingBook) {
       return { exists: true, book: serializeData(existingBook) };
@@ -25,14 +36,19 @@ export const checkBookExists = async (title: string) => {
   }
 };
 
-export const createBook = async (data: CreateBook) => {
+export const createBook = async (data: CreateBookInput) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
 
     const slug = generateSlug(data.title);
 
     const existingBook = await BookModel.findOne({
-      clerkId: data.clerkId,
+      clerkId: userId,
       slug,
     }).lean();
     if (existingBook) {
@@ -46,6 +62,7 @@ export const createBook = async (data: CreateBook) => {
 
     const newBook = await BookModel.create({
       ...data,
+      clerkId: userId,
       slug,
       totalSegments: 0,
     });
@@ -58,12 +75,24 @@ export const createBook = async (data: CreateBook) => {
 };
 
 export const saveBookSegments = async (
-  clerkId: string,
   bookId: string,
   segments: TextSegment[],
 ) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
+
+    const ownedBook = await BookModel.findOne({ _id: bookId, clerkId: userId })
+      .select("_id")
+      .lean();
+
+    if (!ownedBook) {
+      return { success: false, error: "Book not found or unauthorized" };
+    }
 
     console.log("Saving book segments...");
 
@@ -78,9 +107,9 @@ export const saveBookSegments = async (
     const bulkOps = segments.map(
       ({ text, segmentIndex, wordCount, pageNumber }) => ({
         updateOne: {
-          filter: { clerkId, bookId, segmentIndex: segmentIndex },
+          filter: { clerkId: userId, bookId, segmentIndex: segmentIndex },
           update: {
-            clerkId,
+            clerkId: userId,
             bookId,
             content: text,
             segmentIndex,
@@ -95,27 +124,37 @@ export const saveBookSegments = async (
     await BookSegmentModel.bulkWrite(bulkOps);
 
     // Update totalSegments in Book document
-    await BookModel.findByIdAndUpdate(bookId, {
-      totalSegments: segments.length,
-    });
+    await BookModel.findOneAndUpdate(
+      { _id: bookId, clerkId: userId },
+      { totalSegments: segments.length },
+    );
     console.log("Book segments saved successfully");
     return { success: true, totalSegments: segments.length };
   } catch (error) {
     console.error("Error saving book segments:", error);
 
-    await BookSegmentModel.deleteMany({ clerkId, bookId });
-    await BookModel.findByIdAndDelete(bookId);
+    const { userId } = await auth();
+
+    if (userId) {
+      await BookSegmentModel.deleteMany({ clerkId: userId, bookId });
+      await BookModel.findOneAndDelete({ _id: bookId, clerkId: userId });
+    }
     console.log("Deleted book segments due to failure to save segments");
 
     return { success: false, error: "Failed to save book segments" };
   }
 };
 
-export const getAllBooks = async (clerkId: string) => {
+export const getAllBooks = async () => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: true, books: [] };
+    }
+
     await connectToDatabase();
 
-    const books = await BookModel.find({ clerkId })
+    const books = await BookModel.find({ clerkId: userId })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -126,11 +165,16 @@ export const getAllBooks = async (clerkId: string) => {
   }
 };
 
-export const getBookBySlug = async (clerkId: string, slug: string) => {
+export const getBookBySlug = async (slug: string) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: false, data: null, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
 
-    const book = await BookModel.findOne({ clerkId, slug })
+    const book = await BookModel.findOne({ clerkId: userId, slug })
       .select("title author coverURL persona")
       .lean();
 
@@ -151,6 +195,11 @@ export const searchBookSegments = async (
   segmentCount: number = 3,
 ) => {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { success: true, segments: [] };
+    }
+
     await connectToDatabase();
 
     const trimmedQuery = query.trim();
@@ -161,6 +210,7 @@ export const searchBookSegments = async (
 
     const segments = await BookSegmentModel.find(
       {
+        clerkId: userId,
         bookId,
         $text: { $search: trimmedQuery },
       },
@@ -178,5 +228,29 @@ export const searchBookSegments = async (
   } catch (error) {
     console.error("Error searching book segments:", error);
     return { success: false, segments: [], error: "Failed to search segments" };
+  }
+};
+
+export const verifyBookOwnership = async (bookId: string) => {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return false;
+    }
+
+    await connectToDatabase();
+
+    if (!bookId) {
+      return false;
+    }
+
+    const book = await BookModel.findOne({ _id: bookId, clerkId: userId })
+      .select("_id")
+      .lean();
+
+    return Boolean(book);
+  } catch (error) {
+    console.error("Error verifying book ownership:", error);
+    return false;
   }
 };

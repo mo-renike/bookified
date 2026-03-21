@@ -3,21 +3,27 @@
 import VoiceSessionModel from "@/database/models/voiceSession.model";
 import { connectToDatabase } from "@/database/mongoose";
 import { EndSessionResult, StartSessionResult } from "@/types";
-import { getCurrentBilingPeriodStart } from "../subscription.constants";
+import { getCurrentBillingPeriodStart } from "../subscription.constants";
+import { auth } from "@clerk/nextjs/server";
 
 export const startVoiceSession = async (
-  clerkId: string,
   bookId: string,
 ): Promise<StartSessionResult> => {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
     // limits/plan checks would go here (e.g. check if user has reached max session minutes for the month, etc.)
 
     const session = await VoiceSessionModel.create({
-      clerkId,
+      clerkId: userId,
       bookId,
       startedAt: new Date(),
-      billingPeriodStart: getCurrentBilingPeriodStart(),
+      billingPeriodStart: getCurrentBillingPeriodStart(),
       durationSeconds: 0,
     });
 
@@ -37,10 +43,28 @@ export const endVoiceSession = async (
   durationSeconds: number,
 ): Promise<EndSessionResult> => {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     await connectToDatabase();
 
-    const updatedSession = await VoiceSessionModel.findByIdAndUpdate(
-      sessionId,
+    const session = await VoiceSessionModel.findById(sessionId)
+      .select("clerkId")
+      .lean();
+
+    if (!session) {
+      return { success: false, error: "Voice session not found" };
+    }
+
+    if (session.clerkId !== userId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const updatedSession = await VoiceSessionModel.findOneAndUpdate(
+      { _id: sessionId, clerkId: userId },
       {
         endedAt: new Date(),
         durationSeconds,

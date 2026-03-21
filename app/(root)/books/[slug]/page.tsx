@@ -21,7 +21,7 @@ const BookDetailsPage = async ({ params }: BookDetailsPageProps) => {
   }
 
   const { slug } = await params;
-  const result = await getBookBySlug(userId, slug);
+  const result = await getBookBySlug(slug);
 
   const book = result.data as IBook;
 

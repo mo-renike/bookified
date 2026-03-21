@@ -62,7 +62,6 @@ export const useVapi = (book: IBook) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const bookRef = useLatestRef(book);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const durationRef = useLatestRef(duration);
   const voice = book.persona || "default";
 
@@ -71,8 +70,7 @@ export const useVapi = (book: IBook) => {
   const setupVapiListeners = () => {
     const vapiInstance = getVapi();
 
-    // Handle incoming messages from Vapi
-    vapiInstance.on("message", (message: Record<string, unknown>) => {
+    const onVapiMessage = (message: Record<string, unknown>) => {
       console.log("Vapi message event:", message);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,34 +132,43 @@ export const useVapi = (book: IBook) => {
           }
         }
       }
-    });
+    };
 
-    // Handle call-start event
-    vapiInstance.on("call-start", () => {
+    const onCallStart = () => {
       console.log("Call started");
       setstatus("listening");
       lastFinalMessageRef.current = "";
-    });
+    };
 
-    // Handle call-end event
-    vapiInstance.on("call-end", () => {
+    const onCallEnd = () => {
       console.log("Call ended");
       setstatus("idle");
       setcurrentMessage("");
       setcurrentUserMessage("");
-    });
+    };
 
-    // Handle errors
-    vapiInstance.on("error", (error: Record<string, unknown>) => {
+    const onVapiError = (error: Record<string, unknown>) => {
       console.error("Vapi error:", error);
       setlimitError("Connection error. Please try again.");
       setstatus("idle");
-    });
+    };
+
+    vapiInstance.on("message", onVapiMessage);
+    vapiInstance.on("call-start", onCallStart);
+    vapiInstance.on("call-end", onCallEnd);
+    vapiInstance.on("error", onVapiError);
+
+    return () => {
+      vapiInstance.removeListener("message", onVapiMessage);
+      vapiInstance.removeListener("call-start", onCallStart);
+      vapiInstance.removeListener("call-end", onCallEnd);
+      vapiInstance.removeListener("error", onVapiError);
+    };
   };
 
   // Setup listeners on mount
   useEffect(() => {
-    setupVapiListeners();
+    return setupVapiListeners();
   }, []);
 
   // limits
@@ -181,7 +188,7 @@ export const useVapi = (book: IBook) => {
     setstatus("connecting");
 
     try {
-      const result = await startVoiceSession(userId, book._id);
+      const result = await startVoiceSession(book._id);
 
       if (!result.success) {
         setlimitError(

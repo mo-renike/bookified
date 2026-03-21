@@ -8,11 +8,8 @@ import EmptyDataState from "@/components/EmptyDataState";
 const Page = async () => {
   const { userId } = await auth();
 
-  const result = userId
-    ? await getAllBooks(userId)
-    : { success: true, books: [] };
-  const books: IBook[] = result.success ? (result.books as IBook[]) : [];
-
+  const result = userId ? await getAllBooks() : null;
+  const books: IBook[] = result?.success ? (result.books as IBook[]) : [];
   return (
     <main className="wrapper container">
       <HeroSection />

@@ -133,7 +133,6 @@ const UploadForm = () => {
       }
 
       const book = await createBook({
-        clerkId: userId,
         title: values.title,
         author: values.author,
         persona: values.persona,
@@ -142,21 +141,18 @@ const UploadForm = () => {
         coverURL,
         fileSize: pdfFile.size,
       });
-
+      if (!book.success || !book.book) {
+        throw new Error(book.error || "Failed to create book");
+      }
       if (book.alreadyExists) {
         toast.info(
           "A book with this title already exists. Redirecting you to it...",
         );
         resetUploadForm();
-            router.push(`/books/${bookExists.book.slug}`);
+        router.push(`/books/${book.book.slug}`);
         return;
       }
-
-      const segments = await saveBookSegments(
-        userId,
-        book.book._id,
-        parsedPDF.content,
-      );
+      const segments = await saveBookSegments(book.book._id, parsedPDF.content);
 
       if (!segments.success) {
         toast.error("Failed to save book segments. Please try again.");
