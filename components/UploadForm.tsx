@@ -12,68 +12,172 @@ import LoadingOverlay from "./LoadingOverlay";
 import FileUploadField from "./FileUploadField";
 import TextInputField from "./TextInputField";
 import VoiceSelector from "./VoiceSelector";
+import { useAuth } from "@clerk/nextjs";
+import { toast } from "sonner";
+import {
+  checkBookExists,
+  createBook,
+  saveBookSegments,
+} from "@/lib/actions/book.actions";
+import { useRouter } from "next/navigation";
+import { parsePDFFile } from "@/lib/utils";
+import { upload } from "@vercel/blob/client";
 
 const UploadForm = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfFileName, setPdfFileName] = useState<string>("");
   const [coverFileName, setCoverFileName] = useState<string>("");
-
+  const { userId } = useAuth();
+  const router = useRouter();
   const form = useForm<UploadFormValues>({
     resolver: zodResolver(uploadFormSchema),
     defaultValues: {
       title: "",
       author: "",
-      voice: "dave",
+      persona: "",
+      pdfFile: undefined,
+      coverImage: undefined,
     },
     mode: "onChange",
   });
 
-  const { setValue } = form;
+  const { setValue, resetField } = form;
 
-  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setValue("pdf", file);
-      setPdfFileName(file.name);
-    }
+  const handleFileUpload =
+    (
+      field: "pdfFile" | "coverImage",
+      setFileName: React.Dispatch<React.SetStateAction<string>>,
+    ) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      setValue(field, file, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+      setFileName(file.name);
+    };
+
+  const removeFile = (
+    field: "pdfFile" | "coverImage",
+    setFileName: React.Dispatch<React.SetStateAction<string>>,
+  ) => {
+    resetField(field, { defaultValue: undefined });
+    setFileName("");
   };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setValue("coverImage", file);
-      setCoverFileName(file.name);
-    }
-  };
-
-  const removePdf = () => {
-    setValue("pdf", new File([], ""));
+  const resetUploadForm = () => {
+    form.reset();
     setPdfFileName("");
-  };
-
-  const removeCover = () => {
-    setValue("coverImage", undefined);
     setCoverFileName("");
   };
 
   const onSubmit = async (values: UploadFormValues) => {
-    setIsLoading(true);
+    setIsSubmitting(true);
+    if (!userId) {
+      toast.error("You must be logged in to upload a book.");
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
-      // Here you would send the form data to your backend
-      console.log("Form values:", values);
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      alert("Book uploaded successfully!");
+      const bookExists = await checkBookExists(values.title);
+
+      if (bookExists.exists && bookExists.book) {
+        toast.info(
+          "A book with this title already exists. Redirecting you to it...",
+        );
+        resetUploadForm();
+        router.push(`/books/${bookExists.book.slug}`);
+        return;
+      }
+      const fileTitle = values.title.replace(/\.[^/.]+$/, "").toLowerCase();
+      const pdfFile = values.pdfFile;
+
+      const parsedPDF = await parsePDFFile(pdfFile);
+
+      if (parsedPDF.content.length === 0) {
+        toast.error(
+          "Failed to parse PDF file. Please try again with a different file.",
+        );
+        return;
+      }
+
+      const uploadedPDFBlob = await upload(fileTitle, pdfFile, {
+        access: "public",
+        handleUploadUrl: "/api/uploads",
+        contentType: "application/pdf",
+      });
+
+      let coverURL: string;
+
+      if (values.coverImage) {
+        const coverFileTitle = `${fileTitle}-cover.png`;
+        const coverImage = values.coverImage;
+        const uploadedCoverBlob = await upload(coverFileTitle, coverImage, {
+          access: "public",
+          handleUploadUrl: "/api/uploads",
+          contentType: "image/jpeg",
+        });
+        coverURL = uploadedCoverBlob.url;
+      } else {
+        const response = await fetch(parsedPDF.cover);
+        const blob = await response.blob();
+        const uploadedCoverBlob = await upload(`${fileTitle}-cover.png`, blob, {
+          access: "public",
+          handleUploadUrl: "/api/uploads",
+          contentType: "image/png",
+        });
+        coverURL = uploadedCoverBlob.url;
+      }
+
+      const book = await createBook({
+        title: values.title,
+        author: values.author,
+        persona: values.persona,
+        fileURL: uploadedPDFBlob.url,
+        fileBlobKey: uploadedPDFBlob.pathname,
+        coverURL,
+        fileSize: pdfFile.size,
+      });
+      if (!book.success || !book.book) {
+        throw new Error(book.error || "Failed to create book");
+      }
+      if (book.alreadyExists) {
+        toast.info(
+          "A book with this title already exists. Redirecting you to it...",
+        );
+        resetUploadForm();
+        router.push(`/books/${book.book.slug}`);
+        return;
+      }
+      const segments = await saveBookSegments(book.book._id, parsedPDF.content);
+
+      if (!segments.success) {
+        toast.error("Failed to save book segments. Please try again.");
+        throw new Error("Failed to save book segments");
+      }
+      resetUploadForm();
+      toast.success("Book uploaded successfully! Redirecting you to it...");
+
+      router.push(`/`);
     } catch (error) {
       console.error("Error uploading book:", error);
+      toast.error(
+        "An error occurred while uploading your book. Please try again.",
+      );
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <>
-      <LoadingOverlay isVisible={isLoading} title="Synthesizing your book..." />
+      <LoadingOverlay
+        isVisible={isSubmitting}
+        title="Synthesizing your book..."
+      />
       <div className="new-book-wrapper">
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           {/* PDF Upload Field */}
@@ -83,10 +187,11 @@ const UploadForm = () => {
             hint="PDF file (max 50MB)"
             accept=".pdf"
             fileName={pdfFileName}
-            onUpload={handlePdfUpload}
-            onRemove={removePdf}
-            isInvalid={!!form.formState.errors.pdf}
-            error={form.formState.errors.pdf}
+            onUpload={handleFileUpload("pdfFile", setPdfFileName)}
+            onRemove={() => removeFile("pdfFile", setPdfFileName)}
+            isInvalid={!!form.formState.errors.pdfFile}
+            error={form.formState.errors.pdfFile}
+            disabled={isSubmitting}
           />
 
           {/* Cover Image Upload Field */}
@@ -96,10 +201,11 @@ const UploadForm = () => {
             hint="Leave empty to auto-generate from PDF"
             accept="image/*"
             fileName={coverFileName}
-            onUpload={handleCoverUpload}
-            onRemove={removeCover}
+            onUpload={handleFileUpload("coverImage", setCoverFileName)}
+            onRemove={() => removeFile("coverImage", setCoverFileName)}
             isInvalid={!!form.formState.errors.coverImage}
             error={form.formState.errors.coverImage}
+            disabled={isSubmitting}
           />
 
           {/* Title Input */}
@@ -119,15 +225,15 @@ const UploadForm = () => {
           />
 
           {/* Voice Selector */}
-          <VoiceSelector control={form.control} name="voice" />
+          <VoiceSelector control={form.control} name="persona" />
 
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={isLoading}
+            disabled={isSubmitting}
             className="form-btn disabled:opacity-50 disabled:cursor-not-allowed w-full"
           >
-            {isLoading ? "Processing..." : "Begin Synthesis"}
+            {isSubmitting ? "Processing..." : "Begin Synthesis"}
           </Button>
         </form>
       </div>

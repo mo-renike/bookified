@@ -1,18 +1,33 @@
-import React from "react";
 import HeroSection from "@/components/HeroSection";
-import { sampleBooks } from "@/lib/constants";
 import BookCard from "@/components/BookCard";
+import { getAllBooks } from "@/lib/actions/book.actions";
+import { auth } from "@clerk/nextjs/server";
+import { IBook } from "@/types";
+import EmptyDataState from "@/components/EmptyDataState";
 
-const Page = () => {
+const Page = async () => {
+  const { userId } = await auth();
+
+  const result = userId ? await getAllBooks() : null;
+  const books: IBook[] = result?.success ? (result.books as IBook[]) : [];
   return (
     <main className="wrapper container">
       <HeroSection />
 
-      <div className="library-books-grid mt-10 md:mt-16">
-        {sampleBooks.map((book) => (
-          <BookCard key={book._id} book={book} />
-        ))}
-      </div>
+      {books.length > 0 ? (
+        <div className="library-books-grid mt-10 md:mt-16">
+          {books.map((book) => (
+            <BookCard key={book._id} book={book} />
+          ))}
+        </div>
+      ) : (
+        <EmptyDataState
+          title="No books yet"
+          description="Upload your first book to start building your library."
+          actionText="Upload a book"
+          actionLink="/books/new"
+        />
+      )}
     </main>
   );
 };
