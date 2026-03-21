@@ -55,7 +55,7 @@ export const useVapi = (book: IBook) => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const startTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const sesionIdRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef<boolean>(false);
   const lastFinalMessageRef = useRef<string>("");
 
@@ -191,7 +191,7 @@ export const useVapi = (book: IBook) => {
         return;
       }
 
-      sesionIdRef.current = (result.sessionId as string) || null;
+      sessionIdRef.current = (result.sessionId as string) || null;
       const firstMessage = `Hey! good to meet you, I am ${book.persona}. Before we dive in, have you actually read "${book.title}" by ${book.author}" or are we starting fresh?`;
 
       await getVapi().start(ASSISTANT_ID, {
@@ -213,6 +213,10 @@ export const useVapi = (book: IBook) => {
       });
     } catch (error) {
       console.error("Error starting call:", error);
+      if (sessionIdRef.current) {
+        await endVoiceSession(sessionIdRef.current, durationRef.current);
+        sessionIdRef.current = null;
+      }
       setlimitError("Failed to start conversation.");
       setstatus("idle");
     }
@@ -223,8 +227,8 @@ export const useVapi = (book: IBook) => {
     await getVapi().stop();
 
     // End the session with the final duration
-    if (sesionIdRef.current) {
-      await endVoiceSession(sesionIdRef.current, duration);
+    if (sessionIdRef.current) {
+      await endVoiceSession(sessionIdRef.current, duration);
     }
   };
 
@@ -234,7 +238,7 @@ export const useVapi = (book: IBook) => {
     setcurrentMessage("");
     setcurrentUserMessage("");
     setduration(0);
-    sesionIdRef.current = null;
+    sessionIdRef.current = null;
     isStoppingRef.current = false;
   };
 
