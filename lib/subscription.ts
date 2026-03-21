@@ -9,6 +9,21 @@ import {
 import { connectToDatabase } from "@/database/mongoose";
 import VoiceSessionModel from "@/database/models/voiceSession.model";
 import BookModel from "@/database/models/book.model";
+import type { ClientSession } from "mongoose";
+
+const getCurrentBillingPeriodRange = () => {
+  const periodStart = getCurrentBillingPeriodStart();
+  const nextPeriodStart = new Date(
+    periodStart.getFullYear(),
+    periodStart.getMonth() + 1,
+    1,
+    0,
+    0,
+    0,
+  );
+
+  return { periodStart, nextPeriodStart };
+};
 
 /**
  * Get the current user's subscription plan using Clerk's has() method.
@@ -41,27 +56,40 @@ export const getUserPlanLimits = async () => {
   return PLAN_LIMITS[plan];
 };
 
+type CanCreateBookOptions = {
+  userId?: string;
+  plan?: SubscriptionPlan;
+  session?: ClientSession;
+};
+
 /**
  * Check if user can create a new book based on their subscription plan.
  * Returns { allowed: boolean, reason?: string }
  */
-export const canCreateBook = async (): Promise<{
+export const canCreateBook = async (
+  options: CanCreateBookOptions = {},
+): Promise<{
   allowed: boolean;
   reason?: string;
 }> => {
   try {
-    const { userId } = await auth();
+    const { userId: authUserId } = await auth();
+    const userId = options.userId ?? authUserId;
+
     if (!userId) {
       return { allowed: false, reason: "Unauthorized" };
     }
 
-    const plan = await getUserPlan();
+    const plan = options.plan ?? (await getUserPlan());
     const limits = PLAN_LIMITS[plan];
 
     await connectToDatabase();
 
     // Count existing books for this user
-    const bookCount = await BookModel.countDocuments({ clerkId: userId });
+    const bookCount = await BookModel.countDocuments(
+      { clerkId: userId },
+      options.session ? { session: options.session } : undefined,
+    );
 
     if (bookCount >= limits.maxBooks) {
       return {
@@ -97,12 +125,15 @@ export const canStartVoiceSession = async (): Promise<{
 
     await connectToDatabase();
 
-    const billingPeriodStart = getCurrentBillingPeriodStart();
+    const { periodStart, nextPeriodStart } = getCurrentBillingPeriodRange();
 
     // Count sessions in current billing period
     const sessionCount = await VoiceSessionModel.countDocuments({
       clerkId: userId,
-      billingPeriodStart,
+      billingPeriodStart: {
+        $gte: periodStart,
+        $lt: nextPeriodStart,
+      },
     });
 
     // Check session limit (unlimited = -1)
@@ -144,10 +175,13 @@ export const getSessionUsage = async (): Promise<{
 
     await connectToDatabase();
 
-    const billingPeriodStart = getCurrentBillingPeriodStart();
+    const { periodStart, nextPeriodStart } = getCurrentBillingPeriodRange();
     const current = await VoiceSessionModel.countDocuments({
       clerkId: userId,
-      billingPeriodStart,
+      billingPeriodStart: {
+        $gte: periodStart,
+        $lt: nextPeriodStart,
+      },
     });
 
     return {
