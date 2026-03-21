@@ -8,8 +8,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Serialize Mongoose documents to plain JSON objects (strips ObjectId, Date, etc.)
-export const serializeData = <T>(data: T): T =>
-  JSON.parse(JSON.stringify(data));
+type Serialized<T> =
+  T extends { toJSON(): infer U }
+    ? Serialized<U>
+    : T extends Array<infer U>
+      ? Serialized<U>[]
+      : T extends object
+        ? { [K in keyof T]: Serialized<T[K]> }
+        : T;
+
+export const serializeData = <T>(data: T): Serialized<T> =>
+  JSON.parse(JSON.stringify(data)) as Serialized<T>;
 
 // Auto generate slug
 export function generateSlug(text: string): string {
