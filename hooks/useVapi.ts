@@ -162,6 +162,14 @@ export const useVapi = (book: IBook) => {
   // Setup listeners on mount
   useEffect(() => {
     setupVapiListeners();
+
+    // Cleanup listeners on unmount
+    return () => {
+      const vapi = getVapi();
+      if (vapi && typeof (vapi as any).removeAllListeners === "function") {
+        (vapi as any).removeAllListeners();
+      }
+    };
   }, []);
 
   // limits
