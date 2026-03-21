@@ -5,6 +5,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import Navbar from "@/components/Navbar";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const ibmPlexSerif = IBM_Plex_Serif({
   variable: "--font-ibm-plex-serif",
@@ -32,14 +33,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("font-sans", ibmPlexSerif.variable)}>
+    <html
+      lang="en"
+      className={cn("font-sans", ibmPlexSerif.variable)}
+      suppressHydrationWarning
+    >
       <body
         className={`${monaSans.variable} ${ibmPlexSerif.variable} relative font-sans antialiased`}
       >
         <ClerkProvider>
-          <Navbar />
-          {children}
-          <Toaster position="top-right" />
+          <ThemeProvider>
+            <Navbar />
+            {children}
+            <Toaster position="top-right" />
+          </ThemeProvider>
         </ClerkProvider>
       </body>
     </html>

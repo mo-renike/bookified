@@ -38,14 +38,14 @@ const Page = async ({ searchParams }: HomePageProps) => {
                 name="q"
                 defaultValue={query}
                 placeholder="Search by title or author"
-                className="h-11 w-full rounded-lg border border-[var(--border-subtle)] bg-white pl-3 pr-20 text-sm text-[var(--text-primary)] outline-none transition-colors focus:border-[var(--text-primary)]"
+                className="h-11 w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] pl-3 pr-20 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none transition-colors focus:border-[var(--accent-warm)]"
               />
 
               <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
                 {query ? (
                   <Link
                     href="/"
-                    className="inline-flex size-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+                    className="inline-flex size-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
                     aria-label="Clear search"
                   >
                     <X className="size-4" />
@@ -54,7 +54,7 @@ const Page = async ({ searchParams }: HomePageProps) => {
 
                 <button
                   type="submit"
-                  className="inline-flex size-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]"
                   aria-label="Search books"
                 >
                   <Search className="size-4" />

@@ -16,12 +16,16 @@ const EmptyDataState: React.FC<EmptyDataStateProps> = ({
 }) => {
   return (
     <section className="mt-10 md:mt-16">
-      <div className="rounded-xl w-[350px] m-auto p-8 text-center shadow-sm">
-        <h2 className="text-2xl font-semibold text-dark-100">{title}</h2>
-        <p className="mt-2 text-base text-gray-600">{description}</p>
+      <div className="library-empty-card w-[350px] m-auto text-center">
+        <h2 className="text-2xl font-semibold text-[var(--text-primary)]">
+          {title}
+        </h2>
+        <p className="mt-2 text-base text-[var(--text-secondary)]">
+          {description}
+        </p>
         <Link
           href={actionLink}
-          className="mt-6 inline-flex rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          className="mt-6 inline-flex rounded-lg bg-[var(--color-brand)] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[var(--color-brand-hover)]"
         >
           {actionText}
         </Link>

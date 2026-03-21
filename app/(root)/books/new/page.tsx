@@ -6,7 +6,9 @@ const Page = () => {
     <main className="wrapper container">
       <div className="mx-auto max-w-180 space-y-10">
         <section className="flex flex-col gap-5">
-          <h1 className="page-title-xl">Add a New Book</h1>
+          <h1 className="page-title-xl text-[var(--text-primary)]">
+            Add a New Book
+          </h1>
           <p className="sub-title">
             Upload a pdf of your book to start an interactive conversation with
             it.
